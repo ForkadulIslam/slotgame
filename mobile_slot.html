@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slot Machine</title>
+  <link rel="stylesheet" href="custom.css">
+</head>
+<body>
+
+  <main>
+    <div class="slots">
+      <div class="reel"></div>
+      <div class="reel"></div>
+      <div class="reel"></div>
+    </div>
+
+    <button id="spinButton">SPIN</button>
+
+    <div id="debug" class="debug"></div>
+  </main>
+
+  <div class="controls">
+    <div class="balance">
+      <span>Balance:</span>
+      <span id="balance-display">1000</span>
+    </div>
+    <div class="bet">
+      <button id="bet-down-button">-</button>
+      <span>Bet:</span>
+      <span id="bet-display">10</span>
+      <button id="bet-up-button">+</button>
+    </div>
+  </div>
+
+  <script src="custom.js"></script>
+</body>
+</html>

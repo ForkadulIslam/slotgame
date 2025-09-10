@@ -1,0 +1,21 @@
+{
+  "name": "slot-game",
+  "version": "1.0.0",
+  "description": "A simple slot machine game",
+  "main": "custom.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "live-server",
+    "sass": "sass --watch custom.scss:custom.css"
+  },
+  "keywords": [
+    "slot",
+    "game"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "sass": "^1.77.4"
+  }
+}
