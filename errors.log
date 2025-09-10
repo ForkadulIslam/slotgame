@@ -1,2 +1,2 @@
-Uncaught SyntaxError: Identifier 'roll' has already been declared (at custom.js:137:7)Understand this error
-mobile_slot.html:63 Live reload enabled.
+custom.js:99 Uncaught (in promise) TypeError: Assignment to constant variable.
+    at custom.js:99:17

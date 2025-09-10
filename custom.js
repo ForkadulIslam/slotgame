@@ -29,6 +29,9 @@ const debugEl = document.getElementById('debug'),
       // Game state
       indexes = [0, 0, 0];
 
+// Game settings
+const winPercentage = 20; // 20% chance of winning for testing
+
 let balance = 1000;
 let betAmount = 10;
 
@@ -92,6 +95,13 @@ function rollAll() {
     .then((deltas) => {
       deltas.forEach((delta, i) => indexes[i] = (indexes[i] + delta) % num_icons);
       debugEl.textContent = indexes.map((i) => iconMap[i]).join(' - ');
+
+      // Rig the win based on percentage
+      if (Math.random() * 100 < winPercentage) {
+        indexes[0] = 1;
+        indexes[1] = 1;
+        indexes[2] = 1;
+      }
 
       // Check for win on the center payline
       if (indexes[0] === indexes[1] && indexes[1] === indexes[2]) {
