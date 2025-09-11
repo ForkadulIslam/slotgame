@@ -11,9 +11,9 @@ const debugEl = document.getElementById('debug'),
       iconMap = ["banana", "seven", "cherry", "plum", "orange", "bell", "bar", "lemon", "melon"],
       // Paytable: symbol -> payout multiplier
       payTable = {
+        "bell": 200, // Wild symbol payout
         "seven": 100,
         "bar": 50,
-        "bell": 40,
         "melon": 30,
         "orange": 20,
         "plum": 15,
@@ -30,7 +30,10 @@ const debugEl = document.getElementById('debug'),
       indexes = [0, 0, 0];
 
 // Game settings
+const wildSymbol = "bell";
 const winPercentage = 20; // 20% chance of winning for testing
+const winnableSymbols = Object.keys(payTable).filter(s => s !== wildSymbol);
+let forcedWinIndex = 0;
 
 let balance = 1000;
 let betAmount = 10;
@@ -85,6 +88,24 @@ const roll = (reel, offset = 0) => {
 };
 
 /**
+ * Check for a win on a line of 3 symbols
+ * @param {Array<string>} line - An array of 3 symbols
+ * @returns {string|null} - The winning symbol, or null if no win
+ */
+function checkWin(line) {
+  const nonWild = line.filter(s => s !== wildSymbol);
+  if (nonWild.length === 0) return wildSymbol; // All wilds
+  if (nonWild.length === 1) return nonWild[0]; // Two wilds, one other
+  if (nonWild.length === 2) {
+    if (nonWild[0] === nonWild[1]) return nonWild[0]; // One wild, two others that match
+  }
+  if (nonWild.length === 3) {
+    if (nonWild[0] === nonWild[1] && nonWild[1] === nonWild[2]) return nonWild[0]; // Three of a kind
+  }
+  return null;
+}
+
+/**
  * Roll all reels and check for wins
  */
 function rollAll() {
@@ -98,23 +119,30 @@ function rollAll() {
 
       // Rig the win based on percentage
       if (Math.random() * 100 < winPercentage) {
-        indexes[0] = 1;
-        indexes[1] = 1;
-        indexes[2] = 1;
+        const forcedSymbol = winnableSymbols[forcedWinIndex];
+        const forcedSymbolIndex = iconMap.indexOf(forcedSymbol);
+        // Force a win with one wild for testing
+        indexes[0] = forcedSymbolIndex;
+        indexes[1] = iconMap.indexOf(wildSymbol);
+        indexes[2] = forcedSymbolIndex;
+
+        forcedWinIndex++;
+        if (forcedWinIndex >= winnableSymbols.length) {
+          forcedWinIndex = 0;
+        }
       }
 
-      // Check for win on the center payline
-      if (indexes[0] === indexes[1] && indexes[1] === indexes[2]) {
-        const winningSymbol = iconMap[indexes[0]];
+      const line = [iconMap[indexes[0]], iconMap[indexes[1]], iconMap[indexes[2]]];
+      const winningSymbol = checkWin(line);
+
+      if (winningSymbol) {
         const payout = payTable[winningSymbol];
         const winnings = payout * betAmount;
 
-        // Add winnings to balance
         balance += winnings;
         updateDisplays();
 
-        // Display win
-        debugEl.textContent = `You won ${winnings}!`;
+        debugEl.textContent = `You won ${winnings}! (${winningSymbol})`;
         document.querySelector(".slots").classList.add("win2");
         setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
       }
