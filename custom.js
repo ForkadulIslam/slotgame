@@ -7,13 +7,14 @@ const debugEl = document.getElementById('debug'),
       betDisplay = document.getElementById('bet-display'),
       betUpButton = document.getElementById('bet-up-button'),
       betDownButton = document.getElementById('bet-down-button'),
+      autoSpinButton = document.getElementById('autoSpinButton'),
       // Mapping of indexes to icons
       iconMap = ["banana", "seven", "cherry", "plum", "orange", "bell", "bar", "lemon", "melon"],
       // Paytable: symbol -> payout multiplier
       payTable = {
-        "bell": 200, // Wild symbol payout
-        "seven": 100,
-        "bar": 50,
+        "bell": 150, // Wild symbol payout (was 200)
+        "seven": 75,   // (was 100)
+        "bar": 40,     // (was 50)
         "melon": 30,
         "orange": 20,
         "plum": 15,
@@ -24,25 +25,46 @@ const debugEl = document.getElementById('debug'),
       // These are the virtual reels. The distribution of symbols on these reels
       // determines the game's odds and RTP. This is the core of the business logic.
       REEL_1_STRIP = [
-        "banana", "banana", "lemon", "lemon", "cherry", "cherry", "cherry", "plum", "plum",
-        "orange", "orange", "melon", "bar", "seven", "bell", "lemon", "lemon", "banana", "banana",
-        "cherry", "cherry", "plum", "plum", "orange", "melon", "bar", "seven", "banana", "lemon",
-        "cherry", "plum", "orange", "melon", "bar", "banana", "lemon", "cherry", "plum", "orange",
-        "banana", "lemon", "cherry", "banana", "lemon", "cherry", "plum", "orange", "melon", "bar", "seven", "bell"
+        // High frequency low-tier symbols
+        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
+        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
+        "orange", "orange", "orange", "orange",
+        "melon", "melon",
+        // Low frequency high-tier symbols
+        "bar", "bar",
+        "seven",
+        "bell",
+        // Non-winning symbols
+        "banana", "banana",
+        "lemon", "lemon"
       ],
       REEL_2_STRIP = [
-        "banana", "banana", "lemon", "lemon", "cherry", "cherry", "plum", "plum", "orange",
-        "melon", "bar", "seven", "bell", "bell", "bell", "lemon", "banana", "cherry", "plum",
-        "orange", "melon", "bar", "seven", "banana", "lemon", "cherry", "plum", "orange", "melon",
-        "bar", "banana", "lemon", "cherry", "plum", "orange", "banana", "lemon", "cherry", "banana",
-        "lemon", "cherry", "plum", "orange", "melon", "bar", "seven", "bell", "bell"
+        // High frequency low-tier symbols
+        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
+        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
+        "orange", "orange", "orange", "orange",
+        "melon", "melon",
+        // More wilds on middle reel
+        "bar", "bar",
+        "seven",
+        "bell", "bell", "bell",
+        // Non-winning symbols
+        "banana", "banana",
+        "lemon", "lemon"
       ],
       REEL_3_STRIP = [
-        "banana", "banana", "lemon", "lemon", "cherry", "cherry", "cherry", "plum", "plum",
-        "orange", "orange", "melon", "bar", "seven", "bell", "lemon", "lemon", "banana", "banana",
-        "cherry", "cherry", "plum", "plum", "orange", "melon", "bar", "seven", "banana", "lemon",
-        "cherry", "plum", "orange", "melon", "bar", "banana", "lemon", "cherry", "plum", "orange",
-        "banana", "lemon", "cherry", "banana", "lemon", "cherry", "plum", "orange", "melon", "bar", "seven", "bell"
+        // High frequency low-tier symbols
+        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
+        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
+        "orange", "orange", "orange", "orange",
+        "melon", "melon",
+        // Low frequency high-tier symbols
+        "bar", "bar",
+        "seven",
+        "bell",
+        // Non-winning symbols
+        "banana", "banana",
+        "lemon", "lemon"
       ],
       // Icon dimensions and count
       icon_height = 79,
@@ -55,12 +77,13 @@ let indexes = [0, 0, 0];
 
 // Game settings
 const wildSymbol = "bell";
-const winPercentage = 20; // 20% chance of winning for testing
-const winnableSymbols = Object.keys(payTable).filter(s => s !== wildSymbol);
-let forcedWinIndex = 0;
+const scatterSymbol = "seven";
 
 let balance = 1000;
 let betAmount = 10;
+let freeSpinsRemaining = 0;
+let isInFreeSpins = false;
+let isAutoSpinActive = false;
 
 /**
  * Update UI displays
@@ -112,10 +135,11 @@ const generateOutcome = () => {
 const roll = (reel, offset = 0, targetIndex) => {
   const numRotations = offset + 2; // Number of full spins for animation
   const currentIndex = indexes[offset];
+  const randomRotations = Math.round(Math.random() * 2); // Add some randomness to the spin duration
 
   // Calculate the difference to the target, ensuring it spins forward
   const diff = (targetIndex - currentIndex + num_icons) % num_icons;
-  const delta = (numRotations * num_icons) + diff;
+  const delta = ((numRotations + randomRotations) * num_icons) + diff;
 
   return new Promise((resolve, reject) => {
     const style = getComputedStyle(reel),
@@ -156,6 +180,15 @@ function checkWin(line) {
 }
 
 /**
+ * Check for a scatter win.
+ * @param {Array<string>} line - An array of 3 symbols.
+ * @returns {number} - The number of scatter symbols found.
+ */
+function checkScatterWin(line) {
+  return line.filter(s => s === scatterSymbol).length;
+}
+
+/**
  * Roll all reels and check for wins
  */
 function rollAll() {
@@ -174,22 +207,72 @@ function rollAll() {
       // Update the master indexes array with the final, correct result
       indexes = finalIndexes;
 
-      // Use the predetermined line to check for a win
-      const winningSymbol = checkWin(finalLine);
+      // Decrement free spins counter if in free spins mode
+      if (isInFreeSpins) {
+        freeSpinsRemaining--;
+      }
 
+      let totalWinnings = 0;
+      const winMessages = [];
+
+      // Check for standard line wins
+      const winningSymbol = checkWin(finalLine);
       if (winningSymbol) {
         const payout = payTable[winningSymbol];
-        const winnings = payout * (betAmount / 10); // Payouts are based on bet amount
+        const lineWinnings = (payout * betAmount) / 10;
+        totalWinnings += lineWinnings;
+        winMessages.push(`Line Win: ${winningSymbol} (${lineWinnings})`);
+      }
 
-        balance += winnings;
+      // Check for scatter wins (3 or more)
+      const scatterCount = checkScatterWin(finalLine);
+      if (scatterCount >= 3) {
+        const payout = payTable[scatterSymbol];
+        const scatterWinnings = (payout * betAmount) / 10;
+        totalWinnings += scatterWinnings;
+        
+        // Award free spins if not already in free spins mode
+        if (!isInFreeSpins) {
+          isInFreeSpins = true;
+          freeSpinsRemaining = 10;
+          winMessages.push(`10 FREE SPINS WON!`);
+          // --- Stop auto-spin on feature win ---
+          isAutoSpinActive = false;
+        }
+      }
+
+      // Handle win display and balance update
+      if (totalWinnings > 0) {
+        balance += totalWinnings;
         updateDisplays();
-
-        // Overwrite the debug text again to show the win details
-        debugEl.textContent = `WIN: ${winningSymbol} - Payout: ${winnings}`;
+        winMessages.unshift(`WIN!`); // Add WIN! to the start of the message
         document.querySelector(".slots").classList.add("win2");
         setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
       }
-      // If there is no win, the debug text already shows the result, so no 'else' is needed.
+
+      // Handle free spins state and messaging
+      if (isInFreeSpins) {
+        if (freeSpinsRemaining <= 0) {
+          isInFreeSpins = false;
+          winMessages.push("Free spins round over!");
+        } else {
+          winMessages.push(`${freeSpinsRemaining} free spins left.`);
+        }
+      }
+
+      // Update debug text if there are any messages to show
+      if (winMessages.length > 0) {
+        debugEl.textContent = winMessages.join(' | ');
+      }
+
+      // --- Handle auto-spin loop ---
+      if (isAutoSpinActive) {
+        setTimeout(spin, 1000); // 1-second delay before next auto-spin
+      } else {
+        // If auto-spin was turned off, re-enable manual spin button
+        spinButton.disabled = false;
+        autoSpinButton.textContent = 'AUTO';
+      }
     });
 };
 
@@ -197,32 +280,53 @@ function rollAll() {
  * Spin function
  */
 const spin = () => {
-  // Check balance
-  if (balance < betAmount) {
-    debugEl.textContent = "Not enough balance!";
-    return;
+  // Handle bet deduction for normal spins, or do nothing for free spins
+  if (!isInFreeSpins) {
+    if (balance < betAmount) {
+      debugEl.textContent = "Not enough balance!";
+      // --- Stop auto-spin on low balance ---
+      isAutoSpinActive = false;
+      autoSpinButton.textContent = 'AUTO';
+      spinButton.disabled = false;
+      return;
+    }
+    balance -= betAmount;
+    updateDisplays();
   }
 
-  // Deduct bet
-  balance -= betAmount;
-  updateDisplays();
-
-  // Disable buttons
+  // Disable buttons during spin
   spinButton.disabled = true;
   betUpButton.disabled = true;
   betDownButton.disabled = true;
 
-  // Roll all reels
   rollAll().then(() => {
-    // Enable buttons
+    // Always re-enable spin button
     spinButton.disabled = false;
-    betUpButton.disabled = false;
-    betDownButton.disabled = false;
+    
+    // Only re-enable bet buttons if we are not in a free spins cycle
+    if (!isInFreeSpins) {
+      betUpButton.disabled = false;
+      betDownButton.disabled = false;
+    }
   });
+};
+
+const toggleAutoSpin = () => {
+  isAutoSpinActive = !isAutoSpinActive;
+
+  if (isAutoSpinActive) {
+    autoSpinButton.textContent = 'STOP';
+    spinButton.disabled = true; // Disable manual spin during auto-spin
+    spin();
+  } else {
+    autoSpinButton.textContent = 'AUTO';
+    spinButton.disabled = false;
+  }
 };
 
 // Event listeners
 spinButton.addEventListener('click', spin);
+autoSpinButton.addEventListener('click', toggleAutoSpin);
 betUpButton.addEventListener('click', handleBetUp);
 betDownButton.addEventListener('click', handleBetDown);
 

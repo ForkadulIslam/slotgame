@@ -122,6 +122,11 @@ body {
   opacity: 0.5;
 }
 
+.spin-controls {
+  display: flex;
+  gap: 10px;
+}
+
 .controls {
   display: flex;
   justify-content: center;
