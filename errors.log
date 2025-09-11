@@ -1,2 +1,1 @@
-custom.js:99 Uncaught (in promise) TypeError: Assignment to constant variable.
-    at custom.js:99:17
+custom.js:26 Uncaught SyntaxError: Identifier 'iconMap' has already been declared (at custom.js:26:7)

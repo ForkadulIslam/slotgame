@@ -21,13 +21,37 @@ const debugEl = document.getElementById('debug'),
         "lemon": 5,
         "banana": 5,
       },
+      // These are the virtual reels. The distribution of symbols on these reels
+      // determines the game's odds and RTP. This is the core of the business logic.
+      REEL_1_STRIP = [
+        "banana", "banana", "lemon", "lemon", "cherry", "cherry", "cherry", "plum", "plum",
+        "orange", "orange", "melon", "bar", "seven", "bell", "lemon", "lemon", "banana", "banana",
+        "cherry", "cherry", "plum", "plum", "orange", "melon", "bar", "seven", "banana", "lemon",
+        "cherry", "plum", "orange", "melon", "bar", "banana", "lemon", "cherry", "plum", "orange",
+        "banana", "lemon", "cherry", "banana", "lemon", "cherry", "plum", "orange", "melon", "bar", "seven", "bell"
+      ],
+      REEL_2_STRIP = [
+        "banana", "banana", "lemon", "lemon", "cherry", "cherry", "plum", "plum", "orange",
+        "melon", "bar", "seven", "bell", "bell", "bell", "lemon", "banana", "cherry", "plum",
+        "orange", "melon", "bar", "seven", "banana", "lemon", "cherry", "plum", "orange", "melon",
+        "bar", "banana", "lemon", "cherry", "plum", "orange", "banana", "lemon", "cherry", "banana",
+        "lemon", "cherry", "plum", "orange", "melon", "bar", "seven", "bell", "bell"
+      ],
+      REEL_3_STRIP = [
+        "banana", "banana", "lemon", "lemon", "cherry", "cherry", "cherry", "plum", "plum",
+        "orange", "orange", "melon", "bar", "seven", "bell", "lemon", "lemon", "banana", "banana",
+        "cherry", "cherry", "plum", "plum", "orange", "melon", "bar", "seven", "banana", "lemon",
+        "cherry", "plum", "orange", "melon", "bar", "banana", "lemon", "cherry", "plum", "orange",
+        "banana", "lemon", "cherry", "banana", "lemon", "cherry", "plum", "orange", "melon", "bar", "seven", "bell"
+      ],
       // Icon dimensions and count
       icon_height = 79,
       num_icons = 9,
       // Animation settings
-      time_per_icon = 100,
-      // Game state
-      indexes = [0, 0, 0];
+      time_per_icon = 100;
+
+// Game state
+let indexes = [0, 0, 0];
 
 // Game settings
 const wildSymbol = "bell";
@@ -66,8 +90,33 @@ const handleBetDown = () => {
 /** 
  * Roll one reel
  */
-const roll = (reel, offset = 0) => {
-  const delta = (offset + 2) * num_icons + Math.round(Math.random() * num_icons);
+const generateOutcome = () => {
+  const getSecureRandom = (max) => {
+    const randomBytes = new Uint32Array(1);
+    window.crypto.getRandomValues(randomBytes);
+    return randomBytes[0] % max;
+  };
+
+  const finalLine = [
+    REEL_1_STRIP[getSecureRandom(REEL_1_STRIP.length)],
+    REEL_2_STRIP[getSecureRandom(REEL_2_STRIP.length)],
+    REEL_3_STRIP[getSecureRandom(REEL_3_STRIP.length)],
+  ];
+
+  return finalLine;
+};
+
+/** 
+ * Roll one reel
+ */
+const roll = (reel, offset = 0, targetIndex) => {
+  const numRotations = offset + 2; // Number of full spins for animation
+  const currentIndex = indexes[offset];
+
+  // Calculate the difference to the target, ensuring it spins forward
+  const diff = (targetIndex - currentIndex + num_icons) % num_icons;
+  const delta = (numRotations * num_icons) + diff;
+
   return new Promise((resolve, reject) => {
     const style = getComputedStyle(reel),
           backgroundPositionY = parseFloat(style["background-position-y"]),
@@ -82,7 +131,8 @@ const roll = (reel, offset = 0) => {
     setTimeout(() => {
       reel.style.transition = `none`;
       reel.style.backgroundPositionY = `${normTargetBackgroundPositionY}px`;
-      resolve(delta % num_icons);
+      // Resolve with the final index
+      resolve(targetIndex);
     }, (8 + 1 * delta) * time_per_icon + offset * 150);
   });
 };
@@ -110,42 +160,36 @@ function checkWin(line) {
  */
 function rollAll() {
   debugEl.textContent = 'rolling...';
+
+  const finalLine = generateOutcome();
+  const finalIndexes = finalLine.map(symbol => iconMap.indexOf(symbol));
+
+  // Update debug text immediately with the predetermined result
+  debugEl.textContent = `Result: ${finalLine.join(' - ')}`;
+
   const reelsList = document.querySelectorAll('.slots > .reel');
 
-  return Promise.all([...reelsList].map((reel, i) => roll(reel, i)))
-    .then((deltas) => {
-      deltas.forEach((delta, i) => indexes[i] = (indexes[i] + delta) % num_icons);
-      debugEl.textContent = indexes.map((i) => iconMap[i]).join(' - ');
+  return Promise.all([...reelsList].map((reel, i) => roll(reel, i, finalIndexes[i])))
+    .then(() => {
+      // Update the master indexes array with the final, correct result
+      indexes = finalIndexes;
 
-      // Rig the win based on percentage
-      if (Math.random() * 100 < winPercentage) {
-        const forcedSymbol = winnableSymbols[forcedWinIndex];
-        const forcedSymbolIndex = iconMap.indexOf(forcedSymbol);
-        // Force a win with one wild for testing
-        indexes[0] = forcedSymbolIndex;
-        indexes[1] = iconMap.indexOf(wildSymbol);
-        indexes[2] = forcedSymbolIndex;
-
-        forcedWinIndex++;
-        if (forcedWinIndex >= winnableSymbols.length) {
-          forcedWinIndex = 0;
-        }
-      }
-
-      const line = [iconMap[indexes[0]], iconMap[indexes[1]], iconMap[indexes[2]]];
-      const winningSymbol = checkWin(line);
+      // Use the predetermined line to check for a win
+      const winningSymbol = checkWin(finalLine);
 
       if (winningSymbol) {
         const payout = payTable[winningSymbol];
-        const winnings = payout * betAmount;
+        const winnings = payout * (betAmount / 10); // Payouts are based on bet amount
 
         balance += winnings;
         updateDisplays();
 
-        debugEl.textContent = `You won ${winnings}! (${winningSymbol})`;
+        // Overwrite the debug text again to show the win details
+        debugEl.textContent = `WIN: ${winningSymbol} - Payout: ${winnings}`;
         document.querySelector(".slots").classList.add("win2");
         setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
       }
+      // If there is no win, the debug text already shows the result, so no 'else' is needed.
     });
 };
 
