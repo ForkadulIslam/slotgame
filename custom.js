@@ -12,9 +12,9 @@ const debugEl = document.getElementById('debug'),
       iconMap = ["banana", "seven", "cherry", "plum", "orange", "bell", "bar", "lemon", "melon"],
       // Paytable: symbol -> payout multiplier
       payTable = {
-        "bell": 150, // Wild symbol payout (was 200)
-        "seven": 75,   // (was 100)
-        "bar": 40,     // (was 50)
+        "bell": 150, // Wild symbol payout
+        "seven": 5,   // Now a low-paying symbol, acts as scatter
+        "bar": 40,
         "melon": 30,
         "orange": 20,
         "plum": 15,
@@ -25,46 +25,49 @@ const debugEl = document.getElementById('debug'),
       // These are the virtual reels. The distribution of symbols on these reels
       // determines the game's odds and RTP. This is the core of the business logic.
       REEL_1_STRIP = [
-        // High frequency low-tier symbols
-        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
-        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
+        // Very high frequency low-tier symbols
+        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
+        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
         "orange", "orange", "orange", "orange",
-        "melon", "melon",
+        "melon", "melon", "melon",
+        // Scatters (very high frequency for feature trigger)
+        "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven",
         // Low frequency high-tier symbols
         "bar", "bar",
-        "seven",
         "bell",
-        // Non-winning symbols
-        "banana", "banana",
-        "lemon", "lemon"
+        // Non-winning symbols (bare minimum)
+        "banana",
+        "lemon"
       ],
       REEL_2_STRIP = [
-        // High frequency low-tier symbols
-        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
-        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
+        // Very high frequency low-tier symbols
+        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
+        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
         "orange", "orange", "orange", "orange",
-        "melon", "melon",
+        "melon", "melon", "melon",
+        // Scatters (very high frequency for feature trigger)
+        "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven",
         // More wilds on middle reel
         "bar", "bar",
-        "seven",
         "bell", "bell", "bell",
-        // Non-winning symbols
-        "banana", "banana",
-        "lemon", "lemon"
+        // Non-winning symbols (bare minimum)
+        "banana",
+        "lemon"
       ],
       REEL_3_STRIP = [
-        // High frequency low-tier symbols
-        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
-        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
+        // Very high frequency low-tier symbols
+        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
+        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
         "orange", "orange", "orange", "orange",
-        "melon", "melon",
+        "melon", "melon", "melon",
+        // Scatters (very high frequency for feature trigger)
+        "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven",
         // Low frequency high-tier symbols
         "bar", "bar",
-        "seven",
         "bell",
-        // Non-winning symbols
-        "banana", "banana",
-        "lemon", "lemon"
+        // Non-winning symbols (bare minimum)
+        "banana",
+        "lemon"
       ],
       // Icon dimensions and count
       icon_height = 79,
@@ -84,6 +87,9 @@ let betAmount = 10;
 let freeSpinsRemaining = 0;
 let isInFreeSpins = false;
 let isAutoSpinActive = false;
+let currentMultiplier = 1;
+let lastBonusAmount = 0;
+let currentFreeSpinWinnings = 0;
 
 /**
  * Update UI displays
@@ -197,8 +203,8 @@ function rollAll() {
   const finalLine = generateOutcome();
   const finalIndexes = finalLine.map(symbol => iconMap.indexOf(symbol));
 
-  // Update debug text immediately with the predetermined result
-  debugEl.textContent = `Result: ${finalLine.join(' - ')}`;
+  // Log the predetermined result to console instead of displaying in debug area
+  console.log("Predetermined Result:", finalLine.join(' - '));
 
   const reelsList = document.querySelectorAll('.slots > .reel');
 
@@ -219,7 +225,7 @@ function rollAll() {
       const winningSymbol = checkWin(finalLine);
       if (winningSymbol) {
         const payout = payTable[winningSymbol];
-        const lineWinnings = (payout * betAmount) / 10;
+        const lineWinnings = ((payout * betAmount) / 10) * currentMultiplier;
         totalWinnings += lineWinnings;
         winMessages.push(`Line Win: ${winningSymbol} (${lineWinnings})`);
       }
@@ -228,14 +234,17 @@ function rollAll() {
       const scatterCount = checkScatterWin(finalLine);
       if (scatterCount >= 3) {
         const payout = payTable[scatterSymbol];
-        const scatterWinnings = (payout * betAmount) / 10;
+        const scatterWinnings = ((payout * betAmount) / 10) * currentMultiplier;
         totalWinnings += scatterWinnings;
         
         // Award free spins if not already in free spins mode
         if (!isInFreeSpins) {
           isInFreeSpins = true;
           freeSpinsRemaining = 10;
-          winMessages.push(`10 FREE SPINS WON!`);
+          currentMultiplier = 3; // Set 3x multiplier
+          document.body.classList.add('free-spins-active'); // Activate special design
+          winMessages.push(`10 FREE SPINS (3x MULTIPLIER)!`);
+          currentFreeSpinWinnings = 0; // Initialize winnings for new free spin round
           // --- Stop auto-spin on feature win ---
           isAutoSpinActive = false;
         }
@@ -248,15 +257,28 @@ function rollAll() {
         winMessages.unshift(`WIN!`); // Add WIN! to the start of the message
         document.querySelector(".slots").classList.add("win2");
         setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
+
+        if (isInFreeSpins) { // If win happened during free spins
+          currentFreeSpinWinnings += totalWinnings; // Accumulate winnings
+        }
       }
 
       // Handle free spins state and messaging
       if (isInFreeSpins) {
         if (freeSpinsRemaining <= 0) {
           isInFreeSpins = false;
+          currentMultiplier = 1; // Reset multiplier
+          document.body.classList.remove('free-spins-active'); // Deactivate special design
+          lastBonusAmount = currentFreeSpinWinnings; // Store total bonus amount
+          currentFreeSpinWinnings = 0; // Reset for next round
           winMessages.push("Free spins round over!");
+          winMessages.push(`Total Bonus: ${lastBonusAmount}`);
         } else {
-          winMessages.push(`${freeSpinsRemaining} free spins left.`);
+          winMessages.push(`${freeSpinsRemaining} spins left (3x). Bonus: ${currentFreeSpinWinnings}`);
+        }
+      } else { // Not in free spins
+        if (lastBonusAmount > 0) { // If there was a bonus round recently
+          winMessages.push(`Last Bonus: ${lastBonusAmount}`);
         }
       }
 
