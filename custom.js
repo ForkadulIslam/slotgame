@@ -117,7 +117,7 @@ const generateOutcome = () => {
 /** 
  * Roll one reel
  */
-const roll = (reel, offset = 0, targetIndex) => {
+const roll = (reel, offset = 0, targetIndex, anticipation = false) => {
   const numRotations = offset + 2; // Number of full spins for animation
   const currentIndex = indexes[offset];
   const randomRotations = Math.round(Math.random() * 2); // Add some randomness to the spin duration
@@ -125,24 +125,36 @@ const roll = (reel, offset = 0, targetIndex) => {
   // Calculate the difference to the target, ensuring it spins forward
   const diff = (targetIndex - currentIndex + num_icons) % num_icons;
   const delta = ((numRotations + randomRotations) * num_icons) + diff;
+  const spinDuration = (8 + 1 * delta) * time_per_icon + offset * 150;
 
-  return new Promise((resolve, reject) => {
-    const style = getComputedStyle(reel),
-          backgroundPositionY = parseFloat(style["background-position-y"]),
-          targetBackgroundPositionY = backgroundPositionY + delta * icon_height,
-          normTargetBackgroundPositionY = targetBackgroundPositionY % (num_icons * icon_height);
+  // At the start of the next spin, normalize the position immediately. This preserves the bounce from the last spin.
+  const style = getComputedStyle(reel);
+  const backgroundPositionY = parseFloat(style["background-position-y"]);
+  reel.style.transition = 'none';
+  reel.style.backgroundPositionY = `${backgroundPositionY % (num_icons * icon_height)}px`;
 
+  return new Promise((resolve) => {
+    if (anticipation) {
+      reel.classList.add('anticipation');
+    }
+    
+    // We need to use a timeout to allow the browser to apply the 'transition: none' before re-adding the transition.
     setTimeout(() => {
-      reel.style.transition = `background-position-y ${(8 + 1 * delta) * time_per_icon}ms cubic-bezier(.41,-0.01,.63,1.09)`;
+      // Read the NORMALIZED position to calculate the final target.
+      const normalizedPositionY = parseFloat(getComputedStyle(reel)["background-position-y"]);
+      const targetBackgroundPositionY = normalizedPositionY + delta * icon_height;
+
+      reel.style.transition = `background-position-y ${spinDuration}ms cubic-bezier(.41,-0.01,.63,1.09)`;
       reel.style.backgroundPositionY = `${targetBackgroundPositionY}px`;
-    }, offset * 150);
 
-    setTimeout(() => {
-      reel.style.transition = `none`;
-      reel.style.backgroundPositionY = `${normTargetBackgroundPositionY}px`;
-      // Resolve with the final index
-      resolve(targetIndex);
-    }, (8 + 1 * delta) * time_per_icon + offset * 150);
+      // The resolve now happens when the animation visually ends. The normalization for the *next* spin will happen at the start of that spin.
+      setTimeout(() => {
+        if (anticipation) {
+          reel.classList.remove('anticipation');
+        }
+        resolve(targetIndex);
+      }, spinDuration);
+    }, 10); // A very short delay is sufficient for the browser to apply the style change.
   });
 };
 
@@ -189,40 +201,75 @@ async function processWins(wins, line) {
   if (wins.length === 0) return line;
 
   const reelsList = document.querySelectorAll('.slots > .reel');
+  const slotsContainer = document.querySelector('.slots');
   const newSymbols = generateOutcome();
-  const newLine = [...line];
+  let newLine = [...line];
 
-  for (const win of wins) {
-    for (const index of win.indices) {
+  // 1. Create and animate win overlays (pop)
+  const winningIndices = [...new Set(wins.flatMap(win => win.indices))];
+  const overlays = [];
+  for (const index of winningIndices) {
+    const reel = reelsList[index];
+    const symbol = line[index];
+    const symbolIndex = iconMap.indexOf(symbol);
+
+    const overlay = document.createElement('div');
+    // **FIX**: Use a generic class for styling, not 'reel'. Size it to one icon.
+    overlay.className = 'win-overlay win'; 
+    overlay.style.position = 'absolute';
+    overlay.style.top = reel.offsetTop + icon_height + 'px'; // Center on the middle icon
+    overlay.style.left = reel.offsetLeft + 'px';
+    overlay.style.width = reel.offsetWidth + 'px';
+    overlay.style.height = icon_height + 'px';
+    overlay.style.backgroundPositionY = `${-symbolIndex * icon_height}px`;
+    
+    slotsContainer.appendChild(overlay);
+    overlays.push(overlay);
+  }
+
+  // Wait for pop animation to have its effect.
+  await new Promise(resolve => setTimeout(resolve, 600));
+
+  // 2. Explode overlays and start tumble animation simultaneously
+  const explosionPromises = overlays.map(overlay => {
+    return new Promise(resolve => {
+      overlay.className = 'win-overlay exploding';
+      setTimeout(() => {
+        slotsContainer.removeChild(overlay);
+        resolve();
+      }, 400); // Corresponds to explosion animation duration
+    });
+  });
+
+  const tumblePromises = winningIndices.map(index => {
+    return new Promise(resolve => {
       const reel = reelsList[index];
-      reel.classList.add('win');
-    }
-  }
+      const newSymbol = newSymbols[index];
+      const targetIndex = iconMap.indexOf(newSymbol);
+      const style = getComputedStyle(reel);
+      const backgroundPositionY = parseFloat(style["background-position-y"]);
+      const normTargetBackgroundPositionY = -targetIndex * icon_height;
 
-  await new Promise(resolve => setTimeout(resolve, 500)); // Time for win highlight
-
-  for (let i = 0; i < 3; i++) {
-    const reel = reelsList[i];
-    const isWin = wins.some(win => win.indices.includes(i));
-    if (isWin) {
-      // Animate out
-      reel.style.transition = 'transform 0.3s ease-in';
-      reel.style.transform = 'translateY(-100%)';
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Replace symbol and animate in
-      newLine[i] = newSymbols[i];
-      const targetIndex = iconMap.indexOf(newLine[i]);
+      // Hide reel, move it up, then fade in and drop
       reel.style.transition = 'none';
-      reel.style.backgroundPositionY = `${-targetIndex * icon_height}px`;
-      reel.style.transform = 'translateY(100%)';
-      await new Promise(resolve => setTimeout(resolve, 50));
-      reel.style.transition = 'transform 0.3s ease-out';
-      reel.style.transform = 'translateY(0)';
-      reel.classList.remove('win');
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
+      reel.style.opacity = '0';
+      reel.style.backgroundPositionY = `${normTargetBackgroundPositionY - icon_height}px`;
+
+      setTimeout(() => {
+        reel.style.transition = `background-position-y 0.3s cubic-bezier(0.5, 0, 0.75, 0), opacity 0.1s linear`;
+        reel.style.opacity = '1';
+        reel.style.backgroundPositionY = `${normTargetBackgroundPositionY}px`;
+        setTimeout(resolve, 300); // Wait for tumble to finish
+      }, 100); // Small delay to sync with explosion
+    });
+  });
+
+  // Update the line with new symbols for the next check
+  for (const index of winningIndices) {
+    newLine[index] = newSymbols[index];
   }
+
+  await Promise.all([...explosionPromises, ...tumblePromises]);
 
   return newLine;
 }
@@ -252,7 +299,16 @@ async function rollAll() {
   console.log("Initial Result:", finalLine.join(' - '));
 
   const reelsList = document.querySelectorAll('.slots > .reel');
-  await Promise.all([...reelsList].map((reel, i) => roll(reel, i, finalIndexes[i])));
+  const anticipation = finalLine[0] === scatterSymbol && finalLine[1] === scatterSymbol;
+
+  await Promise.all([
+    roll(reelsList[0], 0, finalIndexes[0]),
+    roll(reelsList[1], 1, finalIndexes[1]),
+    roll(reelsList[2], 2, finalIndexes[2], anticipation)
+  ]);
+
+  // Add a brief pause for visual clarity before win checking
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   indexes = finalIndexes;
 
@@ -279,14 +335,22 @@ async function rollAll() {
     wins = checkWin(finalLine);
     if (wins.length > 0) {
       currentMultiplier++;
+      const slotsContainer = document.querySelector('.slots');
+      const popup = document.createElement('div');
+      popup.className = 'multiplier-popup';
+      popup.textContent = `x${currentMultiplier}!`;
+      slotsContainer.appendChild(popup);
+      // Await the multiplier animation to prevent overlap
+      await new Promise(resolve => setTimeout(() => {
+        slotsContainer.removeChild(popup);
+        resolve();
+      }, 1000)); // Animation duration
     }
   }
 
   if (hadWins) {
     balance += totalWinningsThisSpin;
     updateDisplays();
-    document.querySelector(".slots").classList.add("win2");
-    setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
   }
 
   // Scatter check (only once per spin)
@@ -311,7 +375,6 @@ async function rollAll() {
   if (isInFreeSpins) {
     if (freeSpinsRemaining <= 0) {
       isInFreeSpins = false;
-      // Don't reset multiplier here, let it be reset at the start of the next normal spin
       document.body.classList.remove('free-spins-active');
       lastBonusAmount = currentFreeSpinWinnings;
       currentFreeSpinWinnings = 0;
@@ -326,7 +389,6 @@ async function rollAll() {
   if (isAutoSpinActive) {
     setTimeout(spin, 1000);
   } else {
-    spinButton.disabled = false;
     autoSpinButton.textContent = 'AUTO';
   }
 };;

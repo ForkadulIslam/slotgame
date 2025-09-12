@@ -160,9 +160,61 @@ body.free-spins-active {
   box-shadow: inset 0 0 6px 2px rgba(0, 0, 0, 0.3);
 }
 
-.slots .reel.win {
+.win-overlay {
+  background-image: url(https://assets.codepen.io/439000/slotreel.webp);
+  background-repeat: repeat-y;
+}
+
+.win-overlay.win {
+  animation: win-pop 0.8s ease-out;
   filter: grayscale(0%);
-  box-shadow: 0 0 10px 5px yellow;
+  z-index: 10;
+}
+
+.win-overlay.exploding {
+  animation: symbol-electric-explode 0.4s ease-out forwards;
+  z-index: 11;
+}
+
+.slots .reel.anticipation {
+  animation: scatter-anticipation 0.5s ease-in-out infinite;
+}
+
+@keyframes win-pop {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 8px 4px gold;
+  }
+  50% {
+    transform: scale(1.35);
+    box-shadow: 0 0 35px 15px gold;
+  }
+  100% {
+    transform: scale(1.25);
+    box-shadow: 0 0 25px 12px gold;
+  }
+}
+
+@keyframes symbol-electric-explode {
+  0% {
+    transform: scale(1.25) rotate(0deg);
+    opacity: 1;
+    box-shadow: 0 0 25px 12px gold;
+  }
+  100% {
+    transform: scale(1.8) rotate(20deg);
+    opacity: 0;
+    box-shadow: 0 0 50px 20px #00ffff, 0 0 10px 5px white inset;
+  }
+}
+
+@keyframes scatter-anticipation {
+  0%, 100% {
+    box-shadow: 0 0 10px 5px rgba(255, 215, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(255, 165, 0, 1);
+  }
 }
 
 #spinButton {
@@ -203,3 +255,36 @@ body.free-spins-active {
 }
 
 /*# sourceMappingURL=custom.css.map */
+
+.multiplier-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 0 5px #000, 0 0 10px #ff8c00, 0 0 15px #ff8c00;
+  z-index: 20;
+  pointer-events: none;
+  animation: multiplier-popup 1s ease-out forwards;
+}
+
+@keyframes multiplier-popup {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -150%) scale(1);
+    opacity: 0;
+  }
+}
