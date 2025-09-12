@@ -104,6 +104,11 @@ body {
   box-shadow: inset 0 0 6px 2px rgba(0, 0, 0, 0.3);
 }
 
+.slots .reel.win {
+  filter: grayscale(0%);
+  box-shadow: 0 0 10px 5px yellow;
+}
+
 #spinButton {
   margin-top: 20px;
   padding: 10px 20px;
@@ -120,23 +125,6 @@ body {
 #spinButton:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.spin-controls {
-  display: flex;
-  gap: 10px;
-}
-
-/* --- Free Spins Mode Styles --- */
-body.free-spins-active {
-  background: linear-gradient(45deg, #2c003e 0%, #5a007d 100%); /* Dark purple gradient */
-  transition: background 0.5s ease;
-}
-
-.free-spins-active .slots {
-  box-shadow: 0 0 25px 8px rgba(255, 223, 71, 0.7);
-  border-color: rgba(255, 223, 71, 0.7);
-  transition: box-shadow 0.5s ease, border-color 0.5s ease;
 }
 
 .controls {

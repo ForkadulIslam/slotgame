@@ -12,62 +12,41 @@ const debugEl = document.getElementById('debug'),
       iconMap = ["banana", "seven", "cherry", "plum", "orange", "bell", "bar", "lemon", "melon"],
       // Paytable: symbol -> payout multiplier
       payTable = {
-        "bell": 150, // Wild symbol payout
-        "seven": 5,   // Now a low-paying symbol, acts as scatter
-        "bar": 40,
-        "melon": 30,
-        "orange": 20,
-        "plum": 15,
-        "cherry": 10,
-        "lemon": 5,
-        "banana": 5,
+        "bell": 30,
+        "bar": 15,
+        "melon": 12,
+        "orange": 8,
+        "plum": 6,
+        "cherry": 5,
+        "lemon": 3,
+        "banana": 3,
+        "seven": 2,
       },
       // These are the virtual reels. The distribution of symbols on these reels
       // determines the game's odds and RTP. This is the core of the business logic.
       REEL_1_STRIP = [
-        // Very high frequency low-tier symbols
-        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
-        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
-        "orange", "orange", "orange", "orange",
+        "cherry", "plum", "orange",
         "melon", "melon", "melon",
-        // Scatters (very high frequency for feature trigger)
-        "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven",
-        // Low frequency high-tier symbols
-        "bar", "bar",
-        "bell",
-        // Non-winning symbols (bare minimum)
-        "banana",
-        "lemon"
+        "seven", "seven",
+        "bar", "bar", "bar",
+        "bell", "bell", "bell", "bell",
+        "banana", "lemon"
       ],
       REEL_2_STRIP = [
-        // Very high frequency low-tier symbols
-        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
-        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
-        "orange", "orange", "orange", "orange",
-        "melon", "melon", "melon",
-        // Scatters (very high frequency for feature trigger)
-        "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven",
-        // More wilds on middle reel
-        "bar", "bar",
-        "bell", "bell", "bell",
-        // Non-winning symbols (bare minimum)
-        "banana",
-        "lemon"
+        "cherry", "plum", "orange",
+        "melon",
+        "seven",
+        "bar",
+        "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell",
+        "banana", "lemon"
       ],
       REEL_3_STRIP = [
-        // Very high frequency low-tier symbols
-        "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry", "cherry",
-        "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum", "plum",
-        "orange", "orange", "orange", "orange",
+        "cherry", "plum", "orange",
         "melon", "melon", "melon",
-        // Scatters (very high frequency for feature trigger)
-        "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven", "seven",
-        // Low frequency high-tier symbols
-        "bar", "bar",
-        "bell",
-        // Non-winning symbols (bare minimum)
-        "banana",
-        "lemon"
+        "seven", "seven",
+        "bar", "bar", "bar",
+        "bell", "bell", "bell", "bell",
+        "banana", "lemon"
       ],
       // Icon dimensions and count
       icon_height = 79,
@@ -168,21 +147,84 @@ const roll = (reel, offset = 0, targetIndex) => {
 };
 
 /**
- * Check for a win on a line of 3 symbols
- * @param {Array<string>} line - An array of 3 symbols
- * @returns {string|null} - The winning symbol, or null if no win
+ * Check for a win on a line of 3 symbols.
+ * @param {Array<string>} line - An array of 3 symbols.
+ * @returns {Array<Object>} - An array of winning objects, each with symbol and indices.
  */
 function checkWin(line) {
-  const nonWild = line.filter(s => s !== wildSymbol);
-  if (nonWild.length === 0) return wildSymbol; // All wilds
-  if (nonWild.length === 1) return nonWild[0]; // Two wilds, one other
-  if (nonWild.length === 2) {
-    if (nonWild[0] === nonWild[1]) return nonWild[0]; // One wild, two others that match
+  const wins = [];
+  const symbols = [...new Set(line)]; // Get unique symbols
+
+  for (const symbol of symbols) {
+    if (symbol === wildSymbol) continue;
+
+    const count = line.filter(s => s === symbol).length;
+    const wildCount = line.filter(s => s === wildSymbol).length;
+
+    if (count + wildCount >= 3) {
+      const indices = [];
+      for (let i = 0; i < 3; i++) {
+        if (line[i] === symbol || line[i] === wildSymbol) {
+          indices.push(i);
+        }
+      }
+      wins.push({ symbol: symbol, indices: indices });
+    }
   }
-  if (nonWild.length === 3) {
-    if (nonWild[0] === nonWild[1] && nonWild[1] === nonWild[2]) return nonWild[0]; // Three of a kind
+
+  if (line.every(s => s === wildSymbol)) {
+    wins.push({ symbol: wildSymbol, indices: [0, 1, 2] });
   }
-  return null;
+
+  return wins;
+}
+
+/**
+ * Process wins, remove winning symbols, and drop new ones.
+ * @param {Array<Object>} wins - Array of winning objects from checkWin.
+ * @param {Array<string>} line - The current line of symbols.
+ * @returns {Promise<Array<string>>} - The new line of symbols after the drop.
+ */
+async function processWins(wins, line) {
+  if (wins.length === 0) return line;
+
+  const reelsList = document.querySelectorAll('.slots > .reel');
+  const newSymbols = generateOutcome();
+  const newLine = [...line];
+
+  for (const win of wins) {
+    for (const index of win.indices) {
+      const reel = reelsList[index];
+      reel.classList.add('win');
+    }
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 500)); // Time for win highlight
+
+  for (let i = 0; i < 3; i++) {
+    const reel = reelsList[i];
+    const isWin = wins.some(win => win.indices.includes(i));
+    if (isWin) {
+      // Animate out
+      reel.style.transition = 'transform 0.3s ease-in';
+      reel.style.transform = 'translateY(-100%)';
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Replace symbol and animate in
+      newLine[i] = newSymbols[i];
+      const targetIndex = iconMap.indexOf(newLine[i]);
+      reel.style.transition = 'none';
+      reel.style.backgroundPositionY = `${-targetIndex * icon_height}px`;
+      reel.style.transform = 'translateY(100%)';
+      await new Promise(resolve => setTimeout(resolve, 50));
+      reel.style.transition = 'transform 0.3s ease-out';
+      reel.style.transform = 'translateY(0)';
+      reel.classList.remove('win');
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  return newLine;
 }
 
 /**
@@ -197,106 +239,91 @@ function checkScatterWin(line) {
 /**
  * Roll all reels and check for wins
  */
-function rollAll() {
+async function rollAll() {
   debugEl.textContent = 'rolling...';
+  if (!isInFreeSpins) {
+    currentMultiplier = 1; // Reset multiplier only if not in free spins
+  }
+  let totalWinningsThisSpin = 0;
 
-  const finalLine = generateOutcome();
-  const finalIndexes = finalLine.map(symbol => iconMap.indexOf(symbol));
+  let finalLine = generateOutcome();
+  let finalIndexes = finalLine.map(symbol => iconMap.indexOf(symbol));
 
-  // Log the predetermined result to console instead of displaying in debug area
-  console.log("Predetermined Result:", finalLine.join(' - '));
+  console.log("Initial Result:", finalLine.join(' - '));
 
   const reelsList = document.querySelectorAll('.slots > .reel');
+  await Promise.all([...reelsList].map((reel, i) => roll(reel, i, finalIndexes[i])));
 
-  return Promise.all([...reelsList].map((reel, i) => roll(reel, i, finalIndexes[i])))
-    .then(() => {
-      // Update the master indexes array with the final, correct result
-      indexes = finalIndexes;
+  indexes = finalIndexes;
 
-      // Decrement free spins counter if in free spins mode
+  if (isInFreeSpins) {
+    freeSpinsRemaining--;
+  }
+
+  let wins = checkWin(finalLine);
+  let hadWins = wins.length > 0;
+
+  while (wins.length > 0) {
+    for (const win of wins) {
+      const payout = payTable[win.symbol];
+      const lineWinnings = ((payout * betAmount) / 10) * currentMultiplier;
+      totalWinningsThisSpin += lineWinnings;
       if (isInFreeSpins) {
-        freeSpinsRemaining--;
+        currentFreeSpinWinnings += lineWinnings;
       }
+      debugEl.textContent = `Win: ${win.symbol} (${lineWinnings}) | Multiplier: x${currentMultiplier}`;
+    }
 
-      let totalWinnings = 0;
-      const winMessages = [];
+    finalLine = await processWins(wins, finalLine);
+    console.log("New Line:", finalLine.join(' - '));
+    wins = checkWin(finalLine);
+    if (wins.length > 0) {
+      currentMultiplier++;
+    }
+  }
 
-      // Check for standard line wins
-      const winningSymbol = checkWin(finalLine);
-      if (winningSymbol) {
-        const payout = payTable[winningSymbol];
-        const lineWinnings = ((payout * betAmount) / 10) * currentMultiplier;
-        totalWinnings += lineWinnings;
-        winMessages.push(`Line Win: ${winningSymbol} (${lineWinnings})`);
-      }
+  if (hadWins) {
+    balance += totalWinningsThisSpin;
+    updateDisplays();
+    document.querySelector(".slots").classList.add("win2");
+    setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
+  }
 
-      // Check for scatter wins (3 or more)
-      const scatterCount = checkScatterWin(finalLine);
-      if (scatterCount >= 3) {
-        const payout = payTable[scatterSymbol];
-        const scatterWinnings = ((payout * betAmount) / 10) * currentMultiplier;
-        totalWinnings += scatterWinnings;
-        
-        // Award free spins if not already in free spins mode
-        if (!isInFreeSpins) {
-          isInFreeSpins = true;
-          freeSpinsRemaining = 10;
-          currentMultiplier = 3; // Set 3x multiplier
-          document.body.classList.add('free-spins-active'); // Activate special design
-          winMessages.push(`10 FREE SPINS (3x MULTIPLIER)!`);
-          currentFreeSpinWinnings = 0; // Initialize winnings for new free spin round
-          // --- Stop auto-spin on feature win ---
-          isAutoSpinActive = false;
-        }
-      }
+  // Scatter check (only once per spin)
+  const scatterCount = checkScatterWin(finalLine);
+  if (scatterCount >= 3 && !isInFreeSpins) {
+    isInFreeSpins = true;
+    freeSpinsRemaining = 10;
+    currentMultiplier = 1; // Start multiplier at 1 for free spins
+    document.body.classList.add('free-spins-active');
+    debugEl.textContent = `10 FREE SPINS! Multiplier doesn't reset!`;
+    currentFreeSpinWinnings = 0;
+    isAutoSpinActive = false;
+  }
 
-      // Handle win display and balance update
-      if (totalWinnings > 0) {
-        balance += totalWinnings;
-        updateDisplays();
-        winMessages.unshift(`WIN!`); // Add WIN! to the start of the message
-        document.querySelector(".slots").classList.add("win2");
-        setTimeout(() => document.querySelector(".slots").classList.remove("win2"), 2000);
+  // Handle free spins state and messaging
+  if (isInFreeSpins) {
+    if (freeSpinsRemaining <= 0) {
+      isInFreeSpins = false;
+      // Don't reset multiplier here, let it be reset at the start of the next normal spin
+      document.body.classList.remove('free-spins-active');
+      lastBonusAmount = currentFreeSpinWinnings;
+      currentFreeSpinWinnings = 0;
+      debugEl.textContent = `Free spins over! Total Bonus: ${lastBonusAmount}`;
+    } else {
+      debugEl.textContent = `${freeSpinsRemaining} FS left | Multiplier: x${currentMultiplier} | Bonus: ${currentFreeSpinWinnings}`;
+    }
+  } else if (lastBonusAmount > 0) {
+    debugEl.textContent += ` | Last Bonus: ${lastBonusAmount}`;
+  }
 
-        if (isInFreeSpins) { // If win happened during free spins
-          currentFreeSpinWinnings += totalWinnings; // Accumulate winnings
-        }
-      }
-
-      // Handle free spins state and messaging
-      if (isInFreeSpins) {
-        if (freeSpinsRemaining <= 0) {
-          isInFreeSpins = false;
-          currentMultiplier = 1; // Reset multiplier
-          document.body.classList.remove('free-spins-active'); // Deactivate special design
-          lastBonusAmount = currentFreeSpinWinnings; // Store total bonus amount
-          currentFreeSpinWinnings = 0; // Reset for next round
-          winMessages.push("Free spins round over!");
-          winMessages.push(`Total Bonus: ${lastBonusAmount}`);
-        } else {
-          winMessages.push(`${freeSpinsRemaining} spins left (3x). Bonus: ${currentFreeSpinWinnings}`);
-        }
-      } else { // Not in free spins
-        if (lastBonusAmount > 0) { // If there was a bonus round recently
-          winMessages.push(`Last Bonus: ${lastBonusAmount}`);
-        }
-      }
-
-      // Update debug text if there are any messages to show
-      if (winMessages.length > 0) {
-        debugEl.textContent = winMessages.join(' | ');
-      }
-
-      // --- Handle auto-spin loop ---
-      if (isAutoSpinActive) {
-        setTimeout(spin, 1000); // 1-second delay before next auto-spin
-      } else {
-        // If auto-spin was turned off, re-enable manual spin button
-        spinButton.disabled = false;
-        autoSpinButton.textContent = 'AUTO';
-      }
-    });
-};
+  if (isAutoSpinActive) {
+    setTimeout(spin, 1000);
+  } else {
+    spinButton.disabled = false;
+    autoSpinButton.textContent = 'AUTO';
+  }
+};;
 
 /**
  * Spin function
