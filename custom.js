@@ -214,10 +214,9 @@ async function processWins(wins, line) {
     const symbolIndex = iconMap.indexOf(symbol);
 
     const overlay = document.createElement('div');
-    // **FIX**: Use a generic class for styling, not 'reel'. Size it to one icon.
     overlay.className = 'win-overlay win'; 
     overlay.style.position = 'absolute';
-    overlay.style.top = reel.offsetTop + icon_height + 'px'; // Center on the middle icon
+    overlay.style.top = reel.offsetTop + icon_height + 'px';
     overlay.style.left = reel.offsetLeft + 'px';
     overlay.style.width = reel.offsetWidth + 'px';
     overlay.style.height = icon_height + 'px';
@@ -227,40 +226,62 @@ async function processWins(wins, line) {
     overlays.push(overlay);
   }
 
-  // Wait for pop animation to have its effect.
   await new Promise(resolve => setTimeout(resolve, 600));
 
-  // 2. Explode overlays and start tumble animation simultaneously
+  // 2. Explode winning symbols
   const explosionPromises = overlays.map(overlay => {
     return new Promise(resolve => {
       overlay.className = 'win-overlay exploding';
       setTimeout(() => {
         slotsContainer.removeChild(overlay);
         resolve();
-      }, 400); // Corresponds to explosion animation duration
+      }, 400);
     });
   });
 
-  const tumblePromises = winningIndices.map(index => {
+  // 3. Fly in new symbols
+  const flyInPromises = winningIndices.map(index => {
     return new Promise(resolve => {
       const reel = reelsList[index];
       const newSymbol = newSymbols[index];
       const targetIndex = iconMap.indexOf(newSymbol);
-      const style = getComputedStyle(reel);
-      const backgroundPositionY = parseFloat(style["background-position-y"]);
-      const normTargetBackgroundPositionY = -targetIndex * icon_height;
 
-      // Hide reel, move it up, then fade in and drop
-      reel.style.transition = 'none';
+      // Hide the original reel while the new symbol flies in
       reel.style.opacity = '0';
-      reel.style.backgroundPositionY = `${normTargetBackgroundPositionY - icon_height}px`;
 
+      const flyingSymbol = document.createElement('div');
+      flyingSymbol.className = 'flying-symbol';
+      flyingSymbol.style.width = reel.offsetWidth + 'px';
+      flyingSymbol.style.height = icon_height + 'px';
+      flyingSymbol.style.top = reel.offsetTop + icon_height + 'px';
+      flyingSymbol.style.left = reel.offsetLeft + 'px';
+      flyingSymbol.style.backgroundPositionY = `${-targetIndex * icon_height}px`;
+
+      // Set random starting position and state
+      const startX = (Math.random() - 0.5) * 500;
+      const startY = -250;
+      const startRot = (Math.random() - 0.5) * 720;
+      flyingSymbol.style.opacity = '0';
+      flyingSymbol.style.transform = `translateX(${startX}px) translateY(${startY}px) scale(0.5) rotate(${startRot}deg)`;
+      
+      slotsContainer.appendChild(flyingSymbol);
+
+      // Trigger the animation
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          flyingSymbol.style.opacity = '1';
+          flyingSymbol.style.transform = 'none';
+        }, 50); // Delay to ensure transition is applied
+      });
+
+      // After animation, cleanup and update the real reel
       setTimeout(() => {
-        reel.style.transition = `background-position-y 0.3s cubic-bezier(0.5, 0, 0.75, 0), opacity 0.1s linear`;
+        slotsContainer.removeChild(flyingSymbol);
+        reel.style.transition = 'none';
+        reel.style.backgroundPositionY = `${-targetIndex * icon_height}px`;
         reel.style.opacity = '1';
-        reel.style.backgroundPositionY = `${normTargetBackgroundPositionY}px`;
-        setTimeout(resolve, 300); // Wait for tumble to finish
-      }, 100); // Small delay to sync with explosion
+        resolve();
+      }, 650); // Slightly longer than the CSS transition
     });
   });
 
@@ -269,7 +290,7 @@ async function processWins(wins, line) {
     newLine[index] = newSymbols[index];
   }
 
-  await Promise.all([...explosionPromises, ...tumblePromises]);
+  await Promise.all([...explosionPromises, ...flyInPromises]);
 
   return newLine;
 }
