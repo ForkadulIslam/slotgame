@@ -4,7 +4,7 @@ const scatterSymbol = "seven";
 const REEL_1_STRIP = [
   "cherry", "plum", "orange",
   "melon", "melon", "melon",
-  "seven", "seven",
+  "seven", "seven", "seven", "seven", // Added 2
   "bar", "bar", "bar",
   "bell", "bell", "bell", "bell",
   "banana", "lemon"
@@ -13,7 +13,7 @@ const REEL_1_STRIP = [
 const REEL_2_STRIP = [
   "cherry", "plum", "orange",
   "melon",
-  "seven",
+  "seven", "seven", "seven", // Added 2
   "bar",
   "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell",
   "banana", "lemon"
@@ -22,7 +22,7 @@ const REEL_2_STRIP = [
 const REEL_3_STRIP = [
   "cherry", "plum", "orange",
   "melon", "melon", "melon",
-  "seven", "seven",
+  "seven", "seven", "seven", "seven", // Added 2
   "bar", "bar", "bar",
   "bell", "bell", "bell", "bell",
   "banana", "lemon"
@@ -78,4 +78,26 @@ function calculateHitFrequency() {
   console.log(`Hit Frequency: ${hitFrequency.toFixed(2)}%`);
 }
 
+function calculateScatterFrequency() {
+  const totalCombinations = REEL_1_STRIP.length * REEL_2_STRIP.length * REEL_3_STRIP.length;
+  let scatterWins = 0;
+
+  for (const s1 of REEL_1_STRIP) {
+    for (const s2 of REEL_2_STRIP) {
+      for (const s3 of REEL_3_STRIP) {
+        const line = [s1, s2, s3];
+        if (line.filter(s => s === scatterSymbol).length >= 3) {
+          scatterWins++;
+        }
+      }
+    }
+  }
+
+  const scatterFrequency = totalCombinations / scatterWins;
+  console.log(`
+--- Scatter Trigger ---`);
+  console.log(`1 in ${scatterFrequency.toFixed(0)} spins`);
+}
+
 calculateHitFrequency();
+calculateScatterFrequency();

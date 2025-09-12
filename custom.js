@@ -27,7 +27,7 @@ const debugEl = document.getElementById('debug'),
       REEL_1_STRIP = [
         "cherry", "plum", "orange",
         "melon", "melon", "melon",
-        "seven", "seven",
+        "seven", "seven", "seven", "seven", // Added 2
         "bar", "bar", "bar",
         "bell", "bell", "bell", "bell",
         "banana", "lemon"
@@ -35,7 +35,7 @@ const debugEl = document.getElementById('debug'),
       REEL_2_STRIP = [
         "cherry", "plum", "orange",
         "melon",
-        "seven",
+        "seven", "seven", "seven", // Added 2
         "bar",
         "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell", "bell",
         "banana", "lemon"
@@ -43,7 +43,7 @@ const debugEl = document.getElementById('debug'),
       REEL_3_STRIP = [
         "cherry", "plum", "orange",
         "melon", "melon", "melon",
-        "seven", "seven",
+        "seven", "seven", "seven", "seven", // Added 2
         "bar", "bar", "bar",
         "bell", "bell", "bell", "bell",
         "banana", "lemon"
@@ -292,6 +292,12 @@ async function rollAll() {
   // Scatter check (only once per spin)
   const scatterCount = checkScatterWin(finalLine);
   if (scatterCount >= 3 && !isInFreeSpins) {
+    const overlay = document.getElementById('free-spins-overlay');
+    overlay.classList.remove('hidden');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+    }, 3000);
+
     isInFreeSpins = true;
     freeSpinsRemaining = 10;
     currentMultiplier = 1; // Start multiplier at 1 for free spins
